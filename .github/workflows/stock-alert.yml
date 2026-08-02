@@ -1,0 +1,42 @@
+name: Stock Volume Alert
+
+on:
+  schedule:
+    # 5분마다 실행 (UTC 기준). 최소 간격이 5분이라 */5 가 가장 촘촘함.
+    - cron: '*/5 * * * *'
+  workflow_dispatch:   # Actions 탭에서 수동 실행(테스트)용 버튼
+
+# state.json 을 저장소에 다시 커밋하려면 쓰기 권한 필요
+permissions:
+  contents: write
+
+# 실행이 겹치지 않도록 순차 처리
+concurrency:
+  group: stock-alert
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 라이브러리 설치
+        run: pip install yfinance requests
+
+      - name: 봇 실행
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: python bot.py
+
+      - name: 상태 저장 (중복 방지용 state.json 커밋)
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add state.json
+          git commit -m "update state" || echo "변경 없음"
+          git push || echo "푸시할 것 없음"
